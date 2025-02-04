@@ -131,8 +131,41 @@ class PromptGenerator:
             }
         }
 
+    def extract_valid_prompts(self, json_file: str, output_file: str = "valid_prompts.txt"):
+        """
+        Extract and save valid inspired prompts from generated results
+        
+        Args:
+            json_file: Path to the generated prompts JSON file
+            output_file: Path to save the extracted prompts (default: valid_prompts.txt)
+        """
+        try:
+            # Read the JSON file
+            with open(json_file, 'r', encoding='utf-8') as f:
+                results = json.load(f)
+                
+            # Extract valid prompts
+            valid_prompts = []
+            for result in results:
+                if (result.get('inspired_prompt') and 
+                    result['inspired_prompt'] != "处理失败" and 
+                    result['inspired_prompt'] != "Processing failed"):
+                    valid_prompts.append(result['inspired_prompt'])
+            
+            # Save to file
+            with open(output_file, 'w', encoding='utf-8') as f:
+                for prompt in valid_prompts:
+                    f.write(f"{prompt}\n")
+                    
+            print(f"Successfully extracted {len(valid_prompts)} valid prompts to {output_file}")
+            return valid_prompts
+            
+        except Exception as e:
+            print(f"Error extracting valid prompts: {e}")
+            return []
+
 def main():
-    parser = argparse.ArgumentParser(description='AI图片描述生成器')
+    parser = argparse.ArgumentParser(description='AI Image Description Generator')
     parser.add_argument('--input_type', type=str, choices=['json', 'manual'], 
                       default='manual', help='输入类型：json文件或手动输入')
     parser.add_argument('--json_file', type=str, default='recraft_images/image_info.json',
@@ -145,16 +178,22 @@ def main():
     parser.add_argument('--model', type=str, default='gpt4o', 
                       choices=['deucalion', 'gpt4turbo', 'gpt4o'],
                       help='使用的模型')
+    parser.add_argument('--extract_prompts', action='store_true',
+                      help='Extract valid prompts from generated results')
+    parser.add_argument('--valid_prompts_file', type=str, default='valid_prompts.tsv',
+                      help='Output file for valid prompts')
     
     args = parser.parse_args()
     
-    # 初始化LLM客户端
+    # Initialize LLM client
     llm_client = LLMClient(args.timeout, args.model)
     
-    # 初始化生成器
+    # Initialize generator
     generator = PromptGenerator(args.system_prompt, llm_client)
     
-    if args.input_type == 'json':
+    if args.extract_prompts:
+        generator.extract_valid_prompts(args.output_file, args.valid_prompts_file)
+    elif args.input_type == 'json':
         # 从JSON文件生成
         results = generator.generate_from_json(args.json_file)
         
